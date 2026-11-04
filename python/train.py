@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix,auc,accuracy_score,classification_report,precision_score,recall_score
 
-df=pd.read_csv('../data/merged_orders.csv')
+df=pd.read_csv('data/merged_orders.csv')
 df['order_purchase_timestamp']=pd.to_datetime(df['order_purchase_timestamp'])
 df['order_delivered_customer_date']=pd.to_datetime(df['order_delivered_customer_date'])
 df['order_estimated_delivery_date']=pd.to_datetime(df['order_estimated_delivery_date'])
