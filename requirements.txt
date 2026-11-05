@@ -2,3 +2,4 @@ mlflow
 pandas
 numpy
 sklearn
+seaborn

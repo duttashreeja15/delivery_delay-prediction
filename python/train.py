@@ -63,3 +63,7 @@ model_path = model_dir / "random_forest.pkl"
 with model_path.open("wb") as model_file:
     pickle.dump(rf, model_file)
 print(f"Model saved to: {model_path}")
+
+
+#Saving unseen data
+X_test.to_csv('data/processed/X_test.csv',index=False)
