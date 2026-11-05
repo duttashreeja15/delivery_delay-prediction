@@ -1,4 +1,6 @@
 import os
+import pickle
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import mlflow
@@ -54,3 +56,10 @@ with mlflow.start_run(run_name="delivery-delay-model"):
     })
 
     print("Tracking URI:", mlflow.get_tracking_uri())
+
+model_dir = Path(__file__).resolve().parent.parent / "models"
+model_dir.mkdir(parents=True, exist_ok=True)
+model_path = model_dir / "random_forest.pkl"
+with model_path.open("wb") as model_file:
+    pickle.dump(rf, model_file)
+print(f"Model saved to: {model_path}")
