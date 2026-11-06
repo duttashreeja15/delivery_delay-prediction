@@ -5,6 +5,8 @@ import pickle
 import pandas as pd
 import mlflow
 
+from lightgbm import LGBMClassifier
+from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -50,14 +52,14 @@ NUMERICAL_COLUMNS = [
     "purchase_month",
     "purchase_dayofweek",
     "purchase_hour",
-    "shipping_distance_km",
     "number_of_items",
     "unique_products",
     "number_of_sellers",
+    "number_of_payments",
     "total_product_weight_kg",
     "avg_product_weight_kg",
     "total_product_volume_cm3",
-    "number_of_payments",
+    "shipping_distance_km",
 ]
 
 CATEGORICAL_COLUMNS = [
@@ -261,181 +263,184 @@ preprocessor = ColumnTransformer(
 # 8. ML model pipeline
 # --------------------------------------------------
 
-model = RandomForestClassifier(
-    n_estimators=100,
-    max_depth=15,
-    min_samples_leaf=5,
-    random_state=RANDOM_STATE,
-    n_jobs=-1,
-    class_weight="balanced",
-)
+models = {
+    "random_forest": RandomForestClassifier(
+        n_estimators=100, max_depth=15, min_samples_leaf=5,
+        random_state=RANDOM_STATE, n_jobs=-1, class_weight="balanced",
+    ),
+    "lightgbm": LGBMClassifier(
+        n_estimators=100, learning_rate=0.05, num_leaves=31,
+        random_state=RANDOM_STATE, n_jobs=-1, class_weight="balanced",
+        verbosity=-1,
+    ),
+}
 
-pipeline = Pipeline(steps=[
-    ("preprocessor", preprocessor),
-    ("classifier", model),
-])
-
-
-
-
-# --------------------------------------------------
-# 9. Train, evaluate and track in MLflow
-# --------------------------------------------------
-
+# Save the same holdout for both models.
+X_test.to_csv(PROCESSED_DIR / "X_test.csv", index=False)
+y_test.to_csv(PROCESSED_DIR / "y_test.csv", index=False)
 mlflow.set_experiment("Delivery_Delay_Prediction")
+comparison = []
 
-with mlflow.start_run(run_name="random_forest_pipeline"):
-
-    mlflow.log_params({
-        "model": "RandomForestClassifier",
-        "n_estimators": 100,
-        "max_depth": 15,
-        "min_samples_leaf": 5,
-        "test_size": TEST_SIZE,
-        "split_method": "chronological",
-        "random_state": RANDOM_STATE,
-        "decision_threshold": DECISION_THRESHOLD,
-    })
-
-    # Train once
-    pipeline.fit(X_train, y_train)
-        
-
-    y_proba = pipeline.predict_proba(X_test)[:, 1]
-
-    print(pd.Series(y_proba).describe())
-
-    print("Maximum probability:", y_proba.max())
-    print("Predicted positive cases:", sum(y_proba >= DECISION_THRESHOLD))
-
-    # Predictions and probabilities
-    y_pred = (y_proba >= DECISION_THRESHOLD).astype(int)
-
-    metrics = {
-        "test_accuracy": accuracy_score(y_test, y_pred),
-        "test_precision": precision_score(
-            y_test, y_pred, zero_division=0
-        ),
-        "test_recall": recall_score(
-            y_test, y_pred, zero_division=0
-        ),
-        "test_f1": f1_score(
-            y_test, y_pred, zero_division=0
-        ),
-        "test_pr_auc": average_precision_score(
-            y_test, y_proba
-        ),
-    }
-
-    # How many delays are captured in the
-    # riskiest 10% of test orders?
-    top_n = max(1, int(len(y_proba) * 0.10))
-    top_indices = y_proba.argsort()[-top_n:]
-
-    captured_delays = y_test.iloc[top_indices].sum()
-    total_delays = y_test.sum()
-
-    metrics["recall_at_top_10pct"] = (
-        float(captured_delays / total_delays)
-        if total_delays > 0 else 0.0
+for model_name, model in models.items():
+    pipeline = Pipeline(steps=[
+        ("preprocessor", clone(preprocessor)),
+        ("classifier", model),
+    ])
+    model_path = (
+        MODEL_PATH if model_name == "random_forest"
+        else MODEL_DIR / "delivery_delay_lightgbm_pipeline.pkl"
     )
+    with mlflow.start_run(run_name=f"{model_name}_pipeline"):
+        mlflow.log_params(model.get_params())
+        mlflow.log_params({
+            "model": type(model).__name__,
+            "test_size": TEST_SIZE,
+            "split_method": "chronological",
+            "decision_threshold": DECISION_THRESHOLD,
+        })
+        # Train once
+        pipeline.fit(X_train, y_train)
+            
 
-    mlflow.log_metrics(metrics)
+        y_proba = pipeline.predict_proba(X_test)[:, 1]
 
-    print("\nModel Evaluation")
-    print("----------------------")
+        print(pd.Series(y_proba).describe())
 
-    for name, value in metrics.items():
-        print(f"{name}: {value:.4f}")
+        print("Maximum probability:", y_proba.max())
+        print("Predicted positive cases:", sum(y_proba >= DECISION_THRESHOLD))
 
-    print("\nClassification report:")
-    print(classification_report(
-        y_test, y_pred, zero_division=0
-    ))
+        # Predictions and probabilities
+        y_pred = (y_proba >= DECISION_THRESHOLD).astype(int)
+
+        metrics = {
+            "test_accuracy": accuracy_score(y_test, y_pred),
+            "test_precision": precision_score(
+                y_test, y_pred, zero_division=0
+            ),
+            "test_recall": recall_score(
+                y_test, y_pred, zero_division=0
+            ),
+            "test_f1": f1_score(
+                y_test, y_pred, zero_division=0
+            ),
+            "test_pr_auc": average_precision_score(
+                y_test, y_proba
+            ),
+        }
+
+        # How many delays are captured in the
+        # riskiest 10% of test orders?
+        top_n = max(1, int(len(y_proba) * 0.10))
+        top_indices = y_proba.argsort()[-top_n:]
+
+        captured_delays = y_test.iloc[top_indices].sum()
+        total_delays = y_test.sum()
+
+        metrics["recall_at_top_10pct"] = (
+            float(captured_delays / total_delays)
+            if total_delays > 0 else 0.0
+        )
+
+        mlflow.log_metrics(metrics)
+        comparison.append({"model": model_name, **metrics})
+
+        print("\nModel Evaluation")
+        print("----------------------")
+
+        for name, value in metrics.items():
+            print(f"{name}: {value:.4f}")
+
+        print("\nClassification report:")
+        print(classification_report(
+            y_test, y_pred, zero_division=0
+        ))
+
+        print("\nConfusion matrix:")
+        print(confusion_matrix(y_test, y_pred))
+
+        # Save complete preprocessing + classifier pipeline
+        with model_path.open("wb") as file:
+            pickle.dump(pipeline, file)
+
+        # Store model artifact in MLflow
+        mlflow.log_artifact(
+            str(model_path),
+            artifact_path="model"
+        )
+
+        # Save untouched test features and labels
+        X_test.to_csv(
+            PROCESSED_DIR / "X_test.csv",
+            index=False
+        )
+
+        y_test.to_csv(
+            PROCESSED_DIR / "y_test.csv",
+            index=False
+        )
+
+        print("\nModel saved to:", model_path)
+        print("MLflow run ID:", mlflow.active_run().info.run_id)
+
+    print("Training completed successfully!")
+
+    #Diagnostics
+    print("Training target distribution:")
+    print(y_train.value_counts(normalize=True))
+
+    print("\nTest target distribution:")
+    print(y_test.value_counts(normalize=True))
+
+    print("\nPrediction distribution:")
+    print(pd.Series(y_pred).value_counts())
 
     print("\nConfusion matrix:")
     print(confusion_matrix(y_test, y_pred))
 
-    # Save complete preprocessing + classifier pipeline
-    with MODEL_PATH.open("wb") as file:
-        pickle.dump(pipeline, file)
+    print("\nProbability statistics:")
+    print(pd.Series(y_proba).describe())
 
-    # Store model artifact in MLflow
-    mlflow.log_artifact(
-        str(MODEL_PATH),
-        artifact_path="model"
+
+    monthly = (
+        df.assign(
+            month=df["order_purchase_timestamp"]
+            .dt.to_period("M")
+        )
+        .groupby("month")["Delivery_delay"]
+        .agg(["mean", "count"])
     )
 
-    # Save untouched test features and labels
-    X_test.to_csv(
-        PROCESSED_DIR / "X_test.csv",
-        index=False
+    print(monthly)
+
+
+    import pandas as pd
+
+    analysis = pd.DataFrame({
+        "actual": y_test.to_numpy(),
+        "predicted_probability": y_proba
+    })
+
+    analysis["risk_group"] = pd.qcut(
+        analysis["predicted_probability"],
+        q=10,
+        duplicates="drop"
     )
 
-    y_test.to_csv(
-        PROCESSED_DIR / "y_test.csv",
-        index=False
-    )
-
-    print("\nModel saved to:", MODEL_PATH)
-    print("MLflow run ID:", mlflow.active_run().info.run_id)
-
-print("Training completed successfully!")
-
-#Diagnostics
-print("Training target distribution:")
-print(y_train.value_counts(normalize=True))
-
-print("\nTest target distribution:")
-print(y_test.value_counts(normalize=True))
-
-print("\nPrediction distribution:")
-print(pd.Series(y_pred).value_counts())
-
-print("\nConfusion matrix:")
-print(confusion_matrix(y_test, y_pred))
-
-print("\nProbability statistics:")
-print(pd.Series(y_proba).describe())
-
-
-monthly = (
-    df.assign(
-        month=df["order_purchase_timestamp"]
-        .dt.to_period("M")
-    )
-    .groupby("month")["Delivery_delay"]
-    .agg(["mean", "count"])
-)
-
-print(monthly)
-
-
-import pandas as pd
-
-analysis = pd.DataFrame({
-    "actual": y_test.to_numpy(),
-    "predicted_probability": y_proba
-})
-
-analysis["risk_group"] = pd.qcut(
-    analysis["predicted_probability"],
-    q=10,
-    duplicates="drop"
-)
-
-risk_summary = (
-    analysis.groupby(
-        "risk_group",
-        observed=True
-    )
-    .agg(
-        orders=("actual", "count"),
-        actual_delay_rate=("actual", "mean"),
-        avg_predicted_probability=(
-            "predicted_probability", "mean"
+    risk_summary = (
+        analysis.groupby(
+            "risk_group",
+            observed=True
+        )
+        .agg(
+            orders=("actual", "count"),
+            actual_delay_rate=("actual", "mean"),
+            avg_predicted_probability=(
+                "predicted_probability", "mean"
+            )
         )
     )
-)
 
-print(risk_summary)
+    print(risk_summary)
+
+print("\nModel comparison (threshold =", DECISION_THRESHOLD, ")")
+print(pd.DataFrame(comparison).set_index("model").to_string())
