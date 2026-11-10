@@ -8,3 +8,4 @@ seaborn
 lightgbm
 fastapi
 uvicorn
+streamlit
