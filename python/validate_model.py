@@ -14,15 +14,16 @@ PROCESSED_DIR = BASE_DIR / "data" / "processed"
 DECISION_THRESHOLD = 0.3
 
 
-def main():
-    paths = [MODEL_PATH, PROCESSED_DIR / "X_test.csv", PROCESSED_DIR / "y_test.csv"]
+def main(model_path=MODEL_PATH, threshold=DECISION_THRESHOLD):
+    model_path = Path(model_path)
+    paths = [model_path, PROCESSED_DIR / "X_test.csv", PROCESSED_DIR / "y_test.csv"]
     missing = [str(path) for path in paths if not path.is_file()]
     if missing:
         raise FileNotFoundError(
             f"Missing validation files: {missing}. Run python/train_new.py first."
         )
 
-    with MODEL_PATH.open("rb") as file:
+    with model_path.open("rb") as file:
         model = pickle.load(file)
     X_test = pd.read_csv(PROCESSED_DIR / "X_test.csv")
     labels = pd.read_csv(PROCESSED_DIR / "y_test.csv")
@@ -47,7 +48,7 @@ def main():
     X_test = X_test[expected]
     positive_class = list(model.classes_).index(1)
     probabilities = model.predict_proba(X_test)[:, positive_class]
-    predictions = (probabilities >= DECISION_THRESHOLD).astype(int)
+    predictions = (probabilities >= threshold).astype(int)
     metrics = {
         "test_accuracy": accuracy_score(y_test, predictions),
         "test_precision": precision_score(y_test, predictions, zero_division=0),
@@ -59,8 +60,8 @@ def main():
     metrics["recall_at_top_10pct"] = float(
         y_test.iloc[probabilities.argsort()[-top_n:]].sum() / y_test.sum()
     )
-    print(f"Model: {MODEL_PATH}")
-    print(f"Test orders: {len(X_test):,}; threshold: {DECISION_THRESHOLD}")
+    print(f"Model: {model_path}")
+    print(f"Test orders: {len(X_test):,}; threshold: {threshold}")
     for name, value in metrics.items():
         print(f"{name}: {value:.4f}")
     print("\nClassification report:")
@@ -73,6 +74,8 @@ def main():
         "delay_probability": probabilities,
         "predicted": predictions,
     }).head(10).to_string(index=False))
+
+    return model, metrics
 
 
 if __name__ == "__main__":

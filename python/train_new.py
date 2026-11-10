@@ -342,7 +342,7 @@ for model_name, model in models.items():
         )
 
         mlflow.log_metrics(metrics)
-        comparison.append({"model": model_name, **metrics})
+        comparison.append({"model": model_name, "run_id": mlflow.active_run().info.run_id, "model_path": str(model_path), **metrics})
 
         print("\nModel Evaluation")
         print("----------------------")
