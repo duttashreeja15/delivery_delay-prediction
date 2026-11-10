@@ -111,7 +111,7 @@ if st.button("Predict Delay Risk", type="primary"):
         )
 
         # Use the threshold selected during model validation
-        threshold = 0.5
+        threshold = 0.3
 
         predicted = int(score >= threshold)
 

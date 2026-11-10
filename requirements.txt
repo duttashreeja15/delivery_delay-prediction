@@ -9,3 +9,4 @@ lightgbm
 fastapi
 uvicorn
 streamlit
+requests
