@@ -6,3 +6,5 @@ seaborn
 # macOS without libomp: install LightGBM with the command below.
 # python -m pip install --force-reinstall --no-deps --no-binary=lightgbm --config-settings=cmake.define.USE_OPENMP=OFF lightgbm
 lightgbm
+fastapi
+uvicorn
