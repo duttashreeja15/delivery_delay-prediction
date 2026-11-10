@@ -4,3 +4,6 @@
 /mlruns
 /.venv
 /models
+.DS_Store
+mlflow.db
+mlflow.db-*
