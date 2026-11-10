@@ -40,5 +40,4 @@ try:
     print("Response:", response.json())
 except requests.exceptions.JSONDecodeError:
     print("Response:", response.text)
-
 response.raise_for_status()

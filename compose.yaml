@@ -1,0 +1,39 @@
+
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
+    environment:
+      MODEL_URI: /app/deployment/model
+
+    ports:
+      - "127.0.0.1:8001:8001"
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+
+    environment:
+      API_URL: http://backend:8001
+
+    ports:
+      - "127.0.0.1:8501:8501"
+
+    depends_on:
+      backend:
+        condition: service_healthy

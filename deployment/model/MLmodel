@@ -1,0 +1,54 @@
+artifact_path: /Users/shreejadutta/Documents/PythonCoding/e-commerce-delivery-delay-prediction/mlruns/1/models/m-c2c32350e38347f5b367191bc0e12c27/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict_proba
+    python_version: 3.9.6
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.6.1
+is_signature_from_type_hint: false
+metadata:
+  decision_threshold: 0.3
+  positive_class: 1
+mlflow_version: 3.1.4
+model_id: m-c2c32350e38347f5b367191bc0e12c27
+model_size_bytes: 367488
+model_uuid: m-c2c32350e38347f5b367191bc0e12c27
+prompts: null
+run_id: 9d794dd4a8f345e8a0bceb3edadba1a8
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "double", "name": "price", "required": true}, {"type": "double",
+    "name": "freight_value", "required": true}, {"type": "double", "name": "payment_installments",
+    "required": true}, {"type": "double", "name": "payment_value", "required": true},
+    {"type": "double", "name": "product_length_cm", "required": true}, {"type": "double",
+    "name": "product_height_cm", "required": true}, {"type": "double", "name": "product_width_cm",
+    "required": true}, {"type": "long", "name": "purchase_month", "required": true},
+    {"type": "long", "name": "purchase_dayofweek", "required": true}, {"type": "long",
+    "name": "purchase_hour", "required": true}, {"type": "double", "name": "number_of_items",
+    "required": true}, {"type": "double", "name": "unique_products", "required": true},
+    {"type": "double", "name": "number_of_sellers", "required": true}, {"type": "double",
+    "name": "number_of_payments", "required": true}, {"type": "double", "name": "total_product_weight_kg",
+    "required": true}, {"type": "double", "name": "avg_product_weight_kg", "required":
+    true}, {"type": "double", "name": "total_product_volume_cm3", "required": true},
+    {"type": "double", "name": "shipping_distance_km", "required": true}, {"type":
+    "string", "name": "seller_state", "required": true}, {"type": "string", "name":
+    "customer_state", "required": true}, {"type": "string", "name": "payment_type",
+    "required": true}, {"type": "string", "name": "product_category_name", "required":
+    true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1,
+    2]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2026-11-06 04:42:31.275001'

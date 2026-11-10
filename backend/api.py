@@ -16,7 +16,10 @@ TRACKING_URI = os.getenv(
     f"sqlite:///{BASE_DIR / 'mlflow.db'}"
 )
 
-MODEL_URI = "models:/delivery_delay_lightgbm@champion"
+MODEL_URI = os.getenv(
+    "MODEL_URI",
+    "models:/delivery_delay_lightgbm@champion"
+)
 
 mlflow.set_tracking_uri(TRACKING_URI)
 
